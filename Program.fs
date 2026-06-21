@@ -44,8 +44,8 @@ type Msg =
     | InputChanged of ActionState<GameAction>
     | RestartGame
 
-let createPlayer () =
-    let playerPosition =
+let createPlayer () : Player =
+    let playerPosition: Vector2 =
         Vector2(float32 SCREEN_WIDTH / 2.f - 65.f, float32 SCREEN_HEIGHT - 100.f)
 
     let player: Player = Player playerPosition
@@ -57,7 +57,7 @@ let init (ctx: GameContext) : struct (Model * Cmd<Msg>) =
     if not soundManager.Initialized then
         soundManager.LoadSounds ctx.Content
 
-    let model =
+    let model: Model =
         { Player = createPlayer ()
           FallingItems = []
           WaterSplashes = []
@@ -70,8 +70,8 @@ let init (ctx: GameContext) : struct (Model * Cmd<Msg>) =
 
 let random: System.Random = System.Random.Shared
 
-let spawnItem (score: int) =
-    let itemType =
+let spawnItem (score: int) : FallingItem =
+    let itemType: ActorType =
         if random.NextDouble() < 0.8 then
             ActorType.Zongzi
         else
@@ -83,7 +83,7 @@ let spawnItem (score: int) =
 
     FallingItem(Vector2(x, -50.f), speed, itemType)
 
-let checkCollision (player: Player) (item: FallingItem) =
+let checkCollision (player: Player) (item: FallingItem) : bool =
     let playerRect: Rectangle =
         Rectangle(int player.Position.X, int player.Position.Y, int player.SpriteSize.X, int player.SpriteSize.Y)
 
@@ -98,7 +98,7 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
 
     | RestartGame -> init Unchecked.defaultof<_>
 
-    | Tick gt ->
+    | Tick(gt: GameTime) ->
         if model.GameStatus = GameStatus.Title then
             if model.Input.Held.Contains GameAction.Restart then
                 soundManager.PlayBGM()
@@ -132,99 +132,104 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
         elif model.GameStatus = GameStatus.Paused then
             if model.Input.Started.Contains GameAction.Restart then
                 soundManager.ResumeBGM()
-                { model with GameStatus = GameStatus.Playing }, Cmd.none
-            else
-                model, Cmd.none
-        else
-            if model.Input.Started.Contains GameAction.Pause then
-                soundManager.PauseBGM()
-                { model with GameStatus = GameStatus.Paused }, Cmd.none
-            else
-                let dt: float32 = float32 gt.ElapsedGameTime.TotalSeconds
-
-                if model.Input.Held.Contains GameAction.MoveLeft then
-                    model.Player.MoveLeft(PLAYER_SPEED, dt, SCREEN_WIDTH)
-
-                if model.Input.Held.Contains GameAction.MoveRight then
-                    model.Player.MoveRight(PLAYER_SPEED, dt, SCREEN_WIDTH)
-
-                model.FallingItems |> List.iter (fun item -> item.Update(gt))
-
-                model.WaterSplashes |> List.iter (fun splash -> splash.Update(gt))
-
-                let activeSplashes: WaterSplash list =
-                    model.WaterSplashes |> List.filter (fun s -> not s.IsDead)
-
-                model.Captions |> List.iter (fun caption -> caption.Update(gt))
-
-                let activeCaptions: Caption list =
-                    model.Captions |> List.filter (fun c -> not c.IsDead)
-
-                let mutable remainingItems: FallingItem list = []
-                let mutable newSplashes: WaterSplash list = activeSplashes
-                let mutable newCaptions: Caption list = activeCaptions
-
-                for item in model.FallingItems do
-                    let captionPos = Vector2(item.Position.X, item.Position.Y - 30.f)
-
-                    if item.IsOffScreen(SCREEN_HEIGHT) then
-                        if item.Type = ActorType.Zongzi then
-                            model.Player.Score <- model.Player.Score + POINTS_PER_DROP
-
-                            newSplashes <-
-                                WaterSplash(Vector2(item.Position.X, float32 SCREEN_HEIGHT - 25.f))
-                                :: newSplashes
-
-                            newCaptions <- Caption(sprintf "-%d" (abs POINTS_PER_DROP), captionPos) :: newCaptions
-                            soundManager.PlayDrop()
-                    elif checkCollision model.Player item then
-                        if item.Type = ActorType.Zongzi then
-                            model.Player.Score <- model.Player.Score + POINTS_PER_COLLECT
-
-                            newCaptions <- Caption(sprintf "+%d" POINTS_PER_COLLECT, captionPos) :: newCaptions
-
-                            soundManager.PlayItemCollected()
-                        else
-                            model.Player.Lives <- model.Player.Lives - 1
-
-                            newCaptions <-
-                                Caption("Ouch!", Vector2(item.Position.X, item.Position.Y - 30.f))
-                                :: newCaptions
-
-                            soundManager.PlayPlayerHit()
-                    else
-                        remainingItems <- item :: remainingItems
-
-                let newSpawnTimer = model.SpawnTimer + dt
-                let mutable newItems = remainingItems
-
-                let spawnInterval =
-                    max 0.3f (SPAWN_INTERVAL - float32 (model.Player.Score / 100) * 0.1f)
-
-                if newSpawnTimer >= spawnInterval then
-                    newItems <- spawnItem model.Player.Score :: newItems
-
-                let finalSpawnTimer =
-                    if newSpawnTimer >= spawnInterval then
-                        0.f
-                    else
-                        newSpawnTimer
-
-                let gameStatus =
-                    if model.Player.Lives <= 0 then
-                        soundManager.StopBGM()
-                        soundManager.PlayGameOver()
-                        GameStatus.GameOver
-                    else
-                        GameStatus.Playing
 
                 { model with
-                    FallingItems = newItems
-                    WaterSplashes = newSplashes
-                    Captions = newCaptions
-                    SpawnTimer = finalSpawnTimer
-                    GameStatus = gameStatus },
+                    GameStatus = GameStatus.Playing },
                 Cmd.none
+            else
+                model, Cmd.none
+        else if model.Input.Started.Contains GameAction.Pause then
+            soundManager.PauseBGM()
+
+            { model with
+                GameStatus = GameStatus.Paused },
+            Cmd.none
+        else
+            let dt: float32 = float32 gt.ElapsedGameTime.TotalSeconds
+
+            if model.Input.Held.Contains GameAction.MoveLeft then
+                model.Player.MoveLeft(PLAYER_SPEED, dt)
+
+            if model.Input.Held.Contains GameAction.MoveRight then
+                model.Player.MoveRight(PLAYER_SPEED, dt, SCREEN_WIDTH)
+
+            model.FallingItems |> List.iter (fun item -> item.Update(gt))
+
+            model.WaterSplashes |> List.iter (fun splash -> splash.Update(gt))
+
+            let activeSplashes: WaterSplash list =
+                model.WaterSplashes |> List.filter (fun s -> not s.IsDead)
+
+            model.Captions |> List.iter (fun caption -> caption.Update(gt))
+
+            let activeCaptions: Caption list =
+                model.Captions |> List.filter (fun c -> not c.IsDead)
+
+            let mutable remainingItems: FallingItem list = []
+            let mutable newSplashes: WaterSplash list = activeSplashes
+            let mutable newCaptions: Caption list = activeCaptions
+
+            for item in model.FallingItems do
+                let captionPos = Vector2(item.Position.X, item.Position.Y - 30.f)
+
+                if item.IsOffScreen SCREEN_HEIGHT then
+                    if item.Type = ActorType.Zongzi then
+                        model.Player.Score <- model.Player.Score + POINTS_PER_DROP
+
+                        newSplashes <-
+                            WaterSplash(Vector2(item.Position.X, float32 SCREEN_HEIGHT - 25.f))
+                            :: newSplashes
+
+                        newCaptions <- Caption(sprintf "-%d" (abs POINTS_PER_DROP), captionPos) :: newCaptions
+                        soundManager.PlayDrop()
+                elif checkCollision model.Player item then
+                    if item.Type = ActorType.Zongzi then
+                        model.Player.Score <- model.Player.Score + POINTS_PER_COLLECT
+
+                        newCaptions <- Caption(sprintf "+%d" POINTS_PER_COLLECT, captionPos) :: newCaptions
+
+                        soundManager.PlayItemCollected()
+                    else
+                        model.Player.Lives <- model.Player.Lives - 1
+
+                        newCaptions <-
+                            Caption("Ouch!", Vector2(item.Position.X, item.Position.Y - 30.f))
+                            :: newCaptions
+
+                        soundManager.PlayPlayerHit()
+                else
+                    remainingItems <- item :: remainingItems
+
+            let newSpawnTimer: float32 = model.SpawnTimer + dt
+            let mutable newItems: FallingItem list = remainingItems
+
+            let spawnInterval: float32 =
+                max 0.3f (SPAWN_INTERVAL - float32 (model.Player.Score / 100) * 0.1f)
+
+            if newSpawnTimer >= spawnInterval then
+                newItems <- spawnItem model.Player.Score :: newItems
+
+            let finalSpawnTimer: float32 =
+                if newSpawnTimer >= spawnInterval then
+                    0.f
+                else
+                    newSpawnTimer
+
+            let gameStatus: GameStatus =
+                if model.Player.Lives <= 0 then
+                    soundManager.StopBGM()
+                    soundManager.PlayGameOver()
+                    GameStatus.GameOver
+                else
+                    GameStatus.Playing
+
+            { model with
+                FallingItems = newItems
+                WaterSplashes = newSplashes
+                Captions = newCaptions
+                SpawnTimer = finalSpawnTimer
+                GameStatus = gameStatus },
+            Cmd.none
 
 let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
     let (content: Content.ContentManager), (gfx: GraphicsDevice) =
@@ -252,7 +257,7 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
         (textColor: Color)
         (bgColor: Color)
         : unit =
-        let textSize: Vector2 = font.MeasureString(text)
+        let textSize: Vector2 = font.MeasureString text
 
         let bgRect: Rectangle =
             Rectangle(
@@ -347,8 +352,8 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
                 Color.White
                 defaultBgColor
 
-            for caption in model.Captions do
-                let alpha = int (caption.LifeTime * 255.f)
+            for caption: Caption in model.Captions do
+                let alpha: int = int (caption.LifeTime * 255.f)
 
                 let textColor: Color =
                     if caption.Text.StartsWith "+" then Color.Green
@@ -405,19 +410,20 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
 
 [<EntryPoint>]
 let main (_: string[]) : int =
-    let program =
+    let program: Program<Model, Msg> =
         Program.mkProgram init update
         |> Program.withAssets
-        |> Program.withRenderer (fun g -> Batch2DRenderer.create g view)
+        |> Program.withRenderer (fun (g: Game) -> Batch2DRenderer.create g view)
         |> Program.withInput
-        |> Program.withSubscription (fun ctx _ -> InputMapper.subscribeStatic inputMap InputChanged ctx)
+        |> Program.withSubscription (fun (ctx: GameContext) _ -> InputMapper.subscribeStatic inputMap InputChanged ctx)
         |> Program.withTick Tick
-        |> Program.withConfig (fun (game, graphics) ->
+        |> Program.withConfig (fun (game: Game, graphics: GraphicsDeviceManager) ->
             game.Content.RootDirectory <- "Content"
             game.Window.Title <- "Zongzi Catcher - Dragon Boat Festival"
             game.IsMouseVisible <- true
             graphics.PreferredBackBufferWidth <- SCREEN_WIDTH
-            graphics.PreferredBackBufferHeight <- SCREEN_HEIGHT)
+            graphics.PreferredBackBufferHeight <- SCREEN_HEIGHT
+            game.Window.AllowUserResizing <- false)
 
     use game: ElmishGame<Model, Msg> = new ElmishGame<Model, Msg>(program)
     game.Run()
