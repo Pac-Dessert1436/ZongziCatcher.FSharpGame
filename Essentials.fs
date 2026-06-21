@@ -119,5 +119,9 @@ type SoundManager() =
 
     member _.StopBGM() = MediaPlayer.Stop()
 
+    member _.PauseBGM() = MediaPlayer.Pause()
+
+    member _.ResumeBGM() = MediaPlayer.Resume()
+
 let gameEvents: GameEvents = GameEvents()
 let soundManager: SoundManager = SoundManager()

@@ -10,6 +10,8 @@ A fun and festive Dragon Boat Festival-themed game built with F# and MonoGame!
 
 Zongzi Catcher is a classic "catch the falling items" arcade game with a Chinese cultural twist. Guide your dragon boat to catch as many delicious zongzi (rice dumplings) as possible while avoiding the pesky scorpions that fall from above!
 
+Background music used in this game is *The Fun Begins* composed by Oblidivm, licensed under the CC-BY 4.0 license (see [Asset Credits](#-asset-credits) for details).
+
 ### Game Features
 - **Traditional Dragon Boat Festival Theme** - Celebrate the holiday with zongzi and dragon boat imagery
 - **Simple Controls** - Easy to learn, hard to master
