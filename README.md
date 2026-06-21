@@ -63,11 +63,11 @@ ZongziCatcher.FSharpGame/
 git clone https://github.com/Pac-Dessert1436/ZongziCatcher.FSharpGame.git
 ```
 
-### Running the Game
+### Running the Game From Source
 
-**From Source:**
 ```bash
 cd ZongziCatcher.FSharpGame
+dotnet restore
 dotnet run
 ```
 

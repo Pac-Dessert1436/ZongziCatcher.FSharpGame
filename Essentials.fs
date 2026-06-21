@@ -1,6 +1,5 @@
 module ZongziCatcher.FSharpGame.Essentials
 
-open FSharpEventAddons
 open Microsoft.Xna.Framework.Audio
 open Microsoft.Xna.Framework.Media
 
@@ -28,14 +27,12 @@ let POINTS_PER_DROP = -5
 [<Literal>]
 let INITIAL_LIVES = 3
 
-let pes: PriorityEventScheduler = PriorityEventScheduler()
-
 type GameEvents() =
-    let mutable _zongziCollected = Event<unit>()
-    let mutable _zongziDropped = Event<unit>()
-    let mutable _playerHit = Event<unit>()
-    let mutable _gameStarted = Event<unit>()
-    let mutable _gameEnded = Event<unit>()
+    let mutable _zongziCollected: Event<unit> = Event<unit>()
+    let mutable _zongziDropped: Event<unit> = Event<unit>()
+    let mutable _playerHit: Event<unit> = Event<unit>()
+    let mutable _gameStarted: Event<unit> = Event<unit>()
+    let mutable _gameEnded: Event<unit> = Event<unit>()
 
     [<CLIEvent>]
     member _.ZongziCollected = _zongziCollected.Publish
@@ -63,7 +60,7 @@ type GameEvents() =
     member _.TriggerGameEnded() = _gameEnded.Trigger()
 
 type SoundManager() =
-    let mutable _initialized = false
+    let mutable _initialized: bool = false
     let mutable _itemCollectedSound: SoundEffect option = None
     let mutable _dropSound: SoundEffect option = None
     let mutable _playerHitSound: SoundEffect option = None

@@ -66,7 +66,7 @@ let init (ctx: GameContext) : struct (Model * Cmd<Msg>) =
 
 let random = System.Random()
 
-let spawnItem () =
+let spawnItem (score: int) =
     let itemType =
         if random.NextDouble() < 0.8 then
             ActorType.Zongzi
@@ -74,7 +74,8 @@ let spawnItem () =
             ActorType.Scorpion
 
     let x: float32 = float32 (random.Next(int (SCREEN_WIDTH - 50)))
-    let speed: float32 = BASE_ITEM_SPEED + float32 (random.Next(100))
+    let speedBoost = float32 (score / 50) * 10.f
+    let speed: float32 = BASE_ITEM_SPEED + float32 (random.Next(100)) + speedBoost
 
     FallingItem(Vector2(x, -50.f), speed, itemType)
 
@@ -89,7 +90,7 @@ let checkCollision (player: Player) (item: FallingItem) =
 
 let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
     match msg with
-    | InputChanged (input: ActionState<GameAction>) -> { model with Input = input }, Cmd.none
+    | InputChanged(input: ActionState<GameAction>) -> { model with Input = input }, Cmd.none
 
     | RestartGame -> init Unchecked.defaultof<_>
 
@@ -101,7 +102,11 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
 
                 { model with
                     GameStatus = Playing
-                    Player = createPlayer () },
+                    Player = createPlayer ()
+                    FallingItems = []
+                    WaterSplashes = []
+                    Captions = []
+                    SpawnTimer = 0.f },
                 Cmd.none
             else
                 model, Cmd.none
@@ -112,7 +117,11 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
 
                 { model with
                     GameStatus = Playing
-                    Player = createPlayer () },
+                    Player = createPlayer ()
+                    FallingItems = []
+                    WaterSplashes = []
+                    Captions = []
+                    SpawnTimer = 0.f },
                 Cmd.none
             else
                 model, Cmd.none
@@ -128,10 +137,14 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
             model.FallingItems |> List.iter (fun item -> item.Update(gt))
 
             model.WaterSplashes |> List.iter (fun splash -> splash.Update(gt))
-            let activeSplashes: WaterSplash list = model.WaterSplashes |> List.filter (fun s -> not s.IsDead)
+
+            let activeSplashes: WaterSplash list =
+                model.WaterSplashes |> List.filter (fun s -> not s.IsDead)
 
             model.Captions |> List.iter (fun caption -> caption.Update(gt))
-            let activeCaptions: Caption list = model.Captions |> List.filter (fun c -> not c.IsDead)
+
+            let activeCaptions: Caption list =
+                model.Captions |> List.filter (fun c -> not c.IsDead)
 
             let mutable remainingItems: FallingItem list = []
             let mutable newSplashes: WaterSplash list = activeSplashes
@@ -171,11 +184,14 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
             let newSpawnTimer = model.SpawnTimer + dt
             let mutable newItems = remainingItems
 
-            if newSpawnTimer >= SPAWN_INTERVAL then
-                newItems <- spawnItem () :: newItems
+            let spawnInterval =
+                max 0.3f (SPAWN_INTERVAL - float32 (model.Player.Score / 100) * 0.1f)
+
+            if newSpawnTimer >= spawnInterval then
+                newItems <- spawnItem model.Player.Score :: newItems
 
             let finalSpawnTimer =
-                if newSpawnTimer >= SPAWN_INTERVAL then
+                if newSpawnTimer >= spawnInterval then
                     0.f
                 else
                     newSpawnTimer
@@ -197,22 +213,23 @@ let update (msg: Msg) (model: Model) : struct (Model * Cmd<Msg>) =
             Cmd.none
 
 let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
-    let content, gfx = ctx.Content, ctx.GraphicsDevice
+    let (content: Content.ContentManager), (gfx: GraphicsDevice) =
+        ctx.Content, ctx.GraphicsDevice
 
-    let loadTexture name =
-        Assets.getOrCreate name (fun _ -> content.Load<Texture2D>(name)) ctx
+    let loadTexture (name: string) =
+        Assets.getOrCreate name (fun _ -> content.Load<Texture2D> name) ctx
 
-    let loadFont name =
-        Assets.getOrCreate name (fun _ -> content.Load<SpriteFont>(name)) ctx
+    let loadFont (name: string) =
+        Assets.getOrCreate name (fun _ -> content.Load<SpriteFont> name) ctx
 
-    let background = loadTexture "Images/background"
-    let dragonBoat = loadTexture "Images/dragon_boat"
-    let zongzi = loadTexture "Images/zongzi"
-    let scorpion = loadTexture "Images/scorpion"
-    let waterSplash = loadTexture "Images/water_splash"
-    let font = loadFont "Fonts/GameFont"
-    let padding = 5.f
-    let defaultBgColor = Color(0, 0, 0, 200)
+    let background: Texture2D = loadTexture "Images/background"
+    let dragonBoat: Texture2D = loadTexture "Images/dragon_boat"
+    let zongzi: Texture2D = loadTexture "Images/zongzi"
+    let scorpion: Texture2D = loadTexture "Images/scorpion"
+    let waterSplash: Texture2D = loadTexture "Images/water_splash"
+    let font: SpriteFont = loadFont "Fonts/GameFont"
+    let padding: float32 = 5.f
+    let defaultBgColor: Color = Color(0, 0, 0, 200)
 
     let drawTextWithBgColor
         (batch: SpriteBatch)
@@ -220,10 +237,10 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
         (position: Vector2)
         (textColor: Color)
         (bgColor: Color)
-        =
-        let textSize = font.MeasureString(text)
+        : unit =
+        let textSize: Vector2 = font.MeasureString(text)
 
-        let bgRect =
+        let bgRect: Rectangle =
             Rectangle(
                 int (position.X - padding),
                 int (position.Y - padding),
@@ -231,13 +248,14 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
                 int (textSize.Y + padding * 2.f)
             )
 
-        let pixel = new Texture2D(gfx, 1, 1)
+        let pixel: Texture2D = new Texture2D(gfx, 1, 1)
         pixel.SetData [| bgColor |]
         batch.Draw(pixel, bgRect, bgColor)
         batch.DrawString(font, text, position, textColor)
 
     let drawCustom (ctx: GameContext) =
-        let batch = Assets.getOrCreate "spriteBatch" (fun _ -> new SpriteBatch(gfx)) ctx
+        let batch: SpriteBatch =
+            Assets.getOrCreate "spriteBatch" (fun _ -> new SpriteBatch(gfx)) ctx
 
         batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend)
 
@@ -272,8 +290,8 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
                 Color.White
                 defaultBgColor
         else
-            for item in model.FallingItems do
-                let texture = if item.Type = ActorType.Zongzi then zongzi else scorpion
+            for item: FallingItem in model.FallingItems do
+                let texture: Texture2D = if item.Type = ActorType.Zongzi then zongzi else scorpion
 
                 batch.Draw(
                     texture,
@@ -292,8 +310,8 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
                 Color.White
             )
 
-            for splash in model.WaterSplashes do
-                let alpha = int (splash.LifeTime / 0.5f * 255.f)
+            for splash: WaterSplash in model.WaterSplashes do
+                let alpha: int = int (splash.LifeTime / 0.5f * 255.f)
 
                 batch.Draw(
                     waterSplash,
@@ -340,7 +358,7 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
 
                 drawTextWithBgColor
                     batch
-                    (sprintf "Final Score: %6d" model.Player.Score)
+                    (sprintf "Final Score: %5d" model.Player.Score)
                     (Vector2(float32 SCREEN_WIDTH / 2.f - 100.f, float32 SCREEN_HEIGHT / 2.f))
                     Color.White
                     defaultBgColor
@@ -356,17 +374,8 @@ let view (ctx: GameContext) (model: Model) (buffer: RenderBuffer<RenderCmd2D>) =
 
     Draw2D.custom drawCustom 0<RenderLayer> buffer
 
-let registerEventHandlers () =
-    gameEvents.ZongziCollected.Add(fun () -> pes.Schedule((fun () -> ()), Some 5))
-    gameEvents.ZongziDropped.Add(fun () -> pes.Schedule((fun () -> ()), Some 3))
-    gameEvents.PlayerHit.Add(fun () -> pes.Schedule((fun () -> ()), Some 7))
-    gameEvents.GameStarted.Add(fun () -> pes.Schedule((fun () -> ()), Some 10))
-    gameEvents.GameEnded.Add(fun () -> pes.Schedule((fun () -> ()), Some 1))
-
 [<EntryPoint>]
 let main (_: string[]) : int =
-    registerEventHandlers ()
-
     let program =
         Program.mkProgram init update
         |> Program.withAssets

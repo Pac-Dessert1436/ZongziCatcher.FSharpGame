@@ -9,19 +9,19 @@ type ActorType =
     | Scorpion = 2
 
 type Actor(position: Vector2, speed: float32, actorType: ActorType) =
-    let mutable _position = position
-    let mutable _speed = speed
-    let _actorType = actorType
+    let mutable _position: Vector2 = position
+    let mutable _speed: float32 = speed
+    let _actorType: ActorType = actorType
 
     member val Id = System.Guid.NewGuid()
 
     member _.Position
         with get () = _position
-        and set (value) = _position <- value
+        and set (value: Vector2) = _position <- value
 
     member _.Speed
         with get () = _speed
-        and set (value) = _speed <- value
+        and set (value: float32) = _speed <- value
 
     member _.Type = _actorType
 
@@ -31,7 +31,7 @@ type Actor(position: Vector2, speed: float32, actorType: ActorType) =
         | _ -> Vector2(50f, 50f)
 
     member _.Update(gameTime: GameTime) =
-        let dt = float32 gameTime.ElapsedGameTime.TotalSeconds
+        let dt: float32 = float32 gameTime.ElapsedGameTime.TotalSeconds
         _position <- Vector2(_position.X, _position.Y + _speed * dt)
 
     member this.Draw(spriteBatch: SpriteBatch, texture: Texture2D) =
@@ -60,8 +60,8 @@ type Player(position: Vector2) =
         this.Position <- Vector2(newX, this.Position.Y)
 
     member this.MoveRight(speed: float32, dt: float32, screenWidth: int) =
-        let maxX = float32 screenWidth - this.SpriteSize.X
-        let newX = min maxX (this.Position.X + speed * dt)
+        let maxX: float32 = float32 screenWidth - this.SpriteSize.X
+        let newX: float32 = min maxX (this.Position.X + speed * dt)
         this.Position <- Vector2(newX, this.Position.Y)
 
 type FallingItem(position: Vector2, speed: float32, itemType: ActorType) =
@@ -70,20 +70,20 @@ type FallingItem(position: Vector2, speed: float32, itemType: ActorType) =
     member this.IsOffScreen(screenHeight: int) = this.Position.Y > float32 screenHeight
 
 type WaterSplash(position: Vector2) =
-    let mutable _position = position
-    let mutable _lifeTime = 0.5f
+    let mutable _position: Vector2 = position
+    let mutable _lifeTime: float32 = 0.5f
 
     member _.Position = _position
     member _.LifeTime = _lifeTime
 
-    member this.Update(gameTime: GameTime) =
-        let dt = float32 gameTime.ElapsedGameTime.TotalSeconds
+    member _.Update(gameTime: GameTime) =
+        let dt: float32 = float32 gameTime.ElapsedGameTime.TotalSeconds
         _lifeTime <- _lifeTime - dt
 
     member _.IsDead = _lifeTime <= 0.f
 
     member _.Draw(spriteBatch: SpriteBatch, texture: Texture2D) =
-        let alpha = int (_lifeTime / 0.5f * 255.f)
+        let alpha: int = int (_lifeTime / 0.5f * 255.f)
 
         spriteBatch.Draw(
             texture,
@@ -92,17 +92,17 @@ type WaterSplash(position: Vector2) =
         )
 
 type Caption(text: string, position: Vector2) =
-    let mutable _text = text
-    let mutable _position = position
-    let mutable _lifeTime = 1.0f
+    let mutable _text: string = text
+    let mutable _position: Vector2 = position
+    let mutable _lifeTime: float32 = 1.0f
 
     member _.Text = _text
     member _.Position = _position
     member _.LifeTime = _lifeTime
 
-    member this.Update(gameTime: GameTime) =
-        let dt = float32 gameTime.ElapsedGameTime.TotalSeconds
+    member _.Update(gameTime: GameTime) =
+        let dt: float32 = float32 gameTime.ElapsedGameTime.TotalSeconds
         _lifeTime <- _lifeTime - dt
         _position <- Vector2(_position.X, _position.Y - 20.f * dt)
 
-    member this.IsDead = _lifeTime <= 0.f
+    member _.IsDead = _lifeTime <= 0.f
